@@ -1,262 +1,198 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8" />
-<title>雅思单词记忆 · 稳定完整版</title>
-<style>
-body{font-family:Arial,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f7fa;padding:20px}
-.app{max-width:860px;margin:auto;background:#fff;padding:22px;border-radius:16px;box-shadow:0 8px 18px rgba(0,0,0,.14)}
-h1{text-align:center}
-.row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-button{padding:8px 14px;border:none;border-radius:8px;cursor:pointer;background:#4f46e5;color:#fff}
-button.secondary{background:#64748b}
-button.success{background:#16a34a}
-button:disabled{background:#9ca3af}
-.card{text-align:center;margin-top:20px}
-.question{font-size:26px;font-weight:bold}
-.hint{margin-top:10px;color:#6b7280;font-size:18px}
-input{margin-top:15px;padding:10px;width:80%;font-size:18px}
-.result{margin-top:10px;font-weight:bold}
-.answer{display:none;margin-top:10px;color:#374151}
-.stats{text-align:center;margin-top:12px;font-size:14px;color:#374151}
-.progress{height:8px;background:#e5e7eb;border-radius:6px;overflow:hidden;margin-top:8px}
-.progress-bar{height:100%;width:0;background:#4f46e5}
-</style>
-<link rel="manifest" href="manifest.json">
+<meta charset="UTF-8">
+<title>雅思单词记忆 · 云同步版</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#4f46e5">
+<link rel="manifest" href="manifest.json">
+
+<style>
+:root{--bg:#f5f7fa;--card:#fff;--text:#111;--sub:#6b7280;--btn:#4f46e5}
+.dark{--bg:#111827;--card:#1f2937;--text:#f9fafb;--sub:#9ca3af;--btn:#6366f1}
+body{margin:0;background:var(--bg);color:var(--text);
+font-family:Arial,"PingFang SC","Microsoft YaHei"}
+.app{max-width:860px;margin:auto;padding:16px}
+.card{background:var(--card);padding:20px;border-radius:16px;
+box-shadow:0 8px 18px rgba(0,0,0,.15)}
+h1{text-align:center}
+.row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:8px 0}
+button{padding:8px 14px;border:none;border-radius:8px;
+background:var(--btn);color:#fff;cursor:pointer}
+.secondary{background:#64748b}
+.question{font-size:26px;font-weight:bold;text-align:center}
+.hint{text-align:center;color:var(--sub);margin-top:6px}
+input{width:80%;padding:10px;font-size:18px;margin:12px auto;display:block}
+.answer{text-align:center;margin-top:8px;display:none}
+.stats{text-align:center;font-size:14px;color:var(--sub);margin-top:10px}
+</style>
 
 <script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("service-worker.js");
-  });
+if("serviceWorker"in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js"));
 }
 </script>
-
 </head>
 
 <body>
 <div class="app">
-<h1>雅思单词记忆 · 稳定完整版</h1>
+<h1>雅思单词记忆 · 云同步版</h1>
 
 <div class="row">
-<button onclick="setMode('en2cn')">英→汉</button>
-<button onclick="setMode('cn2en')" class="secondary">汉→英</button>
+  <button onclick="setMode('en2cn')">英→汉</button>
+  <button onclick="setMode('cn2en')" class="secondary">汉→英</button>
+  <button onclick="toggleDark()" class="secondary">🌙</button>
 </div>
 
-<div class="card">
-<div class="question" id="question">请先添加单词</div>
-<div class="hint" id="hint"></div>
-<input id="input" placeholder="请输入答案" />
-<div class="result" id="result"></div>
-<div class="answer" id="answer"></div>
+<div class="row">
+  <button onclick="setPool('all')">📚 全部</button>
+  <button onclick="setPool('due')" class="secondary">⏰ 今日</button>
+  <button onclick="setPool('wrong')" class="secondary">📕 错词</button>
+</div>
+
+<div class="card" id="card">
+  <div class="question" id="q"></div>
+  <div class="hint" id="hint"></div>
+  <input id="input" placeholder="请输入答案">
+  <div class="answer" id="answer"></div>
+</div>
+
+<div class="row">
+  <button onclick="grade(true)">✔ 记住</button>
+  <button onclick="grade(false)" class="secondary">✖ 忘记</button>
+  <button onclick="showAnswer()">👀 答案</button>
+</div>
+
+<div class="row">
+  <button onclick="syncFromCloud()" class="secondary">☁️ 拉取云端</button>
+  <button onclick="syncToCloud()" class="secondary">☁️ 上传云端</button>
 </div>
 
 <div class="stats" id="stats"></div>
-<div class="progress"><div class="progress-bar" id="progress"></div></div>
-
-<div class="row" style="margin-top:16px">
-  <div class="row" style="margin-top:10px">
-  <button onclick="exportWords()" class="secondary">📤 导出词库</button>
-  <button onclick="document.getElementById('importFile').click()" class="secondary">
-    📥 导入词库
-  </button>
-  <input type="file" id="importFile" accept=".txt,.json" style="display:none" />
-</div>
-<button onclick="checkAnswer()" class="success">确认</button>
-<button onclick="showAnswer()" class="secondary">查看答案</button>
-<button onclick="nextWord()">下一个</button>
-<button onclick="speak()" class="secondary">🔊 发音</button>
-<button onclick="toggleAdd()" class="secondary">➕ 添加单词</button>
-</div>
-
-<div id="addPanel" style="display:none;margin-top:16px;text-align:center;">
-<input id="newEn" placeholder="英文单词" style="width:35%;margin:5px" />
-<input id="newCn" placeholder="中文释义" style="width:35%;margin:5px" />
-<br/>
-<button onclick="addWord()" class="success">保存单词</button>
-</div>
 </div>
 
 <script>
-let defaultWords = [
-  { en:"abandon", cn:"放弃", level:0 },
-  { en:"accurate", cn:"准确的", level:0 },
-  { en:"analyze", cn:"分析", level:0 }
+/* ================== 🔧 云同步配置（只改这里） ================== */
+const GIST_ID = "你的_GIST_ID";
+const GIST_TOKEN = "你的_GITHUB_TOKEN";
+/* ============================================================ */
+
+const DAY=86400000;
+let mode="en2cn", pool="all", current=null;
+let dark=localStorage.getItem("dark")==="1";
+
+let words=JSON.parse(localStorage.getItem("words"))||[
+  make("abandon","放弃"),make("accurate","准确的"),make("analyze","分析")
 ];
+let logs=JSON.parse(localStorage.getItem("logs"))||[];
 
-let allWords = [];
-let current = null;
-let mode = 'en2cn';
-let total = 0, correct = 0;
-
-// ===== 初始化词库（关键修复点）=====
-const saved = localStorage.getItem('userWords');
-if(saved){
-  try{
-    const parsed = JSON.parse(saved);
-    allWords = parsed.length ? parsed : defaultWords;
-  }catch{
-    allWords = defaultWords;
-  }
-}else{
-  allWords = defaultWords;
+function make(en,cn){
+  return{en,cn,ease:2.5,interval:0,due:0,wrong:0}
 }
 
-// ===== 工具函数 =====
-function setMode(m){ mode=m; nextWord(); }
+function schedule(w,ok){
+  if(ok){
+    w.ease=Math.max(1.3,w.ease+0.1);
+    w.interval=w.interval?Math.round(w.interval*w.ease):1;
+    w.wrong=0;
+  }else{
+    w.ease=Math.max(1.3,w.ease-0.2);
+    w.interval=1;
+    w.wrong++;
+  }
+  w.due=Date.now()+w.interval*DAY;
+}
 
-function getHint(){
- if(!current) return '';
- if(mode==='cn2en'){
-  return current.en.slice(0,2)+' '+'_ '.repeat(current.en.length-2);
- }
- return current.cn[0]+'□'.repeat(current.cn.length-1);
+function getPool(){
+  if(pool==="due")return words.filter(w=>w.due<=Date.now());
+  if(pool==="wrong")return words.filter(w=>w.wrong||w.ease<2.3);
+  return words;
+}
+
+function setMode(m){mode=m;next()}
+function setPool(p){pool=p;next()}
+function showAnswer(){answer.style.display="block"}
+
+function toggleDark(){
+  dark=!dark;
+  document.body.classList.toggle("dark",dark);
+  localStorage.setItem("dark",dark?"1":"0");
+}
+
+function next(){
+  const list=getPool();
+  if(!list.length){q.textContent="🎉 暂无可复习";return}
+  current=list[Math.floor(Math.random()*list.length)];
+  render();
 }
 
 function render(){
- if(!current){
-  document.getElementById('question').textContent='请先添加单词';
-  return;
- }
- const bars=['⬜⬜⬜','🟨⬜⬜','🟩🟨⬜','🟩🟩🟩'];
- document.getElementById('question').textContent =
-   (mode==='cn2en'?'汉译英：':'英译汉：')+(mode==='cn2en'?current.cn:current.en);
- document.getElementById('hint').textContent='熟练度：'+bars[current.level]+' ｜ 提示：'+getHint();
- document.getElementById('answer').textContent='正确答案：'+(mode==='cn2en'?current.en:current.cn);
- document.getElementById('answer').style.display='none';
- document.getElementById('input').value='';
- document.getElementById('result').textContent='';
- updateStats();
+  q.textContent=(mode==="cn2en"?"汉译英：":"英译汉：")+
+    (mode==="cn2en"?current.cn:current.en);
+  hint.textContent=mode==="cn2en"
+    ?current.en.slice(0,2)+" _ ".repeat(current.en.length-2)
+    :current.cn[0]+"□".repeat(current.cn.length-1);
+  answer.textContent="答案："+(mode==="cn2en"?current.en:current.cn);
+  answer.style.display="none";
+  input.value="";
+  stats.textContent=statText();
 }
 
-function nextWord(){
- if(!allWords.length){ current=null; render(); return; }
- current = allWords[Math.floor(Math.random()*allWords.length)];
- render();
+function grade(ok){
+  if(ok){
+    const v=input.value.trim();
+    if(mode==="cn2en" && v.toLowerCase()!==current.en) ok=false;
+    if(mode==="en2cn" && !current.cn.includes(v)) ok=false;
+  }
+  schedule(current,ok);
+  logs.push({t:Date.now(),ok});
+  save(); next();
 }
 
-function normalizeCn(t){ return t.replace(/\s|；|，/g,''); }
-
-function checkAnswer(){
- if(!current) return;
- const v=document.getElementById('input').value.trim();
- let ok = mode==='cn2en'
-   ? v.toLowerCase()===current.en
-   : normalizeCn(current.cn).includes(normalizeCn(v));
- total++;
- if(ok){
-  correct++;
-  current.level=Math.min(current.level+1,3);
-  document.getElementById('result').textContent='✅ 正确';
- }else{
-  current.level=Math.max(current.level-1,0);
-  document.getElementById('result').textContent='❌ 错误';
- }
- localStorage.setItem('userWords',JSON.stringify(allWords));
- updateStats();
+function statText(){
+  const now=Date.now();
+  const d7=logs.filter(l=>now-l.t<7*DAY).length;
+  const d30=logs.filter(l=>now-l.t<30*DAY).length;
+  return `今日：${getPool().length}｜7天：${d7}｜30天：${d30}`;
 }
 
-function showAnswer(){
- if(current) document.getElementById('answer').style.display='block';
+/* ========== ☁️ 云同步核心 ========== */
+async function syncToCloud(){
+  await fetch(`https://api.github.com/gists/${GIST_ID}`,{
+    method:"PATCH",
+    headers:{
+      "Authorization":"token "+GIST_TOKEN,
+      "Content-Type":"application/json"
+    },
+    body:JSON.stringify({
+      files:{
+        "ielts_words.json":{
+          content:JSON.stringify({words,logs},null,2)
+        }
+      }
+    })
+  });
+  alert("已上传云端");
 }
 
-function updateStats(){
- document.getElementById('stats').textContent =
-  `正确率：${total?Math.round(correct/total*100):0}%（${correct}/${total}）`;
- document.getElementById('progress').style.width =
-  total?Math.round(correct/total*100)+'%':'0%';
+async function syncFromCloud(){
+  const r=await fetch(`https://api.github.com/gists/${GIST_ID}`);
+  const j=await r.json();
+  const data=JSON.parse(j.files["ielts_words.json"].content);
+  words=data.words||[];
+  logs=data.logs||[];
+  save(); next();
+  alert("已同步云端");
+}
+/* ================================= */
+
+function save(){
+  localStorage.setItem("words",JSON.stringify(words));
+  localStorage.setItem("logs",JSON.stringify(logs));
 }
 
-function speak(){
- if(!current) return;
- const u=new SpeechSynthesisUtterance(current.en);
- u.lang='en-US'; speechSynthesis.speak(u);
-}
-
-// ===== 添加单词 =====
-function toggleAdd(){
- const p=document.getElementById('addPanel');
- p.style.display=p.style.display==='none'?'block':'none';
-}
-
-function addWord(){
- const en=document.getElementById('newEn').value.trim().toLowerCase();
- const cn=document.getElementById('newCn').value.trim();
- if(!en||!cn){alert('请输入完整');return;}
- if(allWords.find(w=>w.en===en)){alert('已存在');return;}
- allWords.push({en,cn,level:0});
- localStorage.setItem('userWords',JSON.stringify(allWords));
- document.getElementById('newEn').value='';
- document.getElementById('newCn').value='';
- nextWord();
- alert('添加成功');
-}
-
-// 启动
-nextWord();
+document.body.classList.toggle("dark",dark);
+next();
 </script>
 </body>
 </html>
-// ===== 导出词库 =====
-function exportWords(){
-  const data = JSON.stringify(allWords, null, 2);
-  const blob = new Blob([data], {type: "application/json"});
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "ielts_words.json";
-  a.click();
-
-  URL.revokeObjectURL(url);
-}
-
-// ===== 导入词库 =====
-document.getElementById("importFile").addEventListener("change", function(e){
-  const file = e.target.files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(){
-    try{
-      let imported = [];
-
-      if(file.name.endsWith(".json")){
-        imported = JSON.parse(reader.result);
-      }else{
-        // TXT
-        const lines = reader.result.split(/\r?\n/);
-        for(const line of lines){
-          if(!line.includes("=")) continue;
-          const [en, cn] = line.split("=");
-          if(en && cn){
-            imported.push({
-              en: en.trim().toLowerCase(),
-              cn: cn.trim(),
-              level: 0
-            });
-          }
-        }
-      }
-
-      // 合并去重
-      let added = 0;
-      imported.forEach(w=>{
-        if(!allWords.find(x=>x.en===w.en)){
-          allWords.push(w);
-          added++;
-        }
-      });
-
-      localStorage.setItem("userWords", JSON.stringify(allWords));
-      alert(`导入完成，新增 ${added} 个单词`);
-      nextWord();
-
-    }catch(err){
-      alert("文件格式错误，导入失败");
-    }
-  };
-
-  reader.readAsText(file, "utf-8");
-});
