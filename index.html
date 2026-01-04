@@ -56,6 +56,13 @@ if ("serviceWorker" in navigator) {
 <div class="progress"><div class="progress-bar" id="progress"></div></div>
 
 <div class="row" style="margin-top:16px">
+  <div class="row" style="margin-top:10px">
+  <button onclick="exportWords()" class="secondary">📤 导出词库</button>
+  <button onclick="document.getElementById('importFile').click()" class="secondary">
+    📥 导入词库
+  </button>
+  <input type="file" id="importFile" accept=".txt,.json" style="display:none" />
+</div>
 <button onclick="checkAnswer()" class="success">确认</button>
 <button onclick="showAnswer()" class="secondary">查看答案</button>
 <button onclick="nextWord()">下一个</button>
@@ -191,3 +198,65 @@ nextWord();
 </script>
 </body>
 </html>
+// ===== 导出词库 =====
+function exportWords(){
+  const data = JSON.stringify(allWords, null, 2);
+  const blob = new Blob([data], {type: "application/json"});
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ielts_words.json";
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+// ===== 导入词库 =====
+document.getElementById("importFile").addEventListener("change", function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(){
+    try{
+      let imported = [];
+
+      if(file.name.endsWith(".json")){
+        imported = JSON.parse(reader.result);
+      }else{
+        // TXT
+        const lines = reader.result.split(/\r?\n/);
+        for(const line of lines){
+          if(!line.includes("=")) continue;
+          const [en, cn] = line.split("=");
+          if(en && cn){
+            imported.push({
+              en: en.trim().toLowerCase(),
+              cn: cn.trim(),
+              level: 0
+            });
+          }
+        }
+      }
+
+      // 合并去重
+      let added = 0;
+      imported.forEach(w=>{
+        if(!allWords.find(x=>x.en===w.en)){
+          allWords.push(w);
+          added++;
+        }
+      });
+
+      localStorage.setItem("userWords", JSON.stringify(allWords));
+      alert(`导入完成，新增 ${added} 个单词`);
+      nextWord();
+
+    }catch(err){
+      alert("文件格式错误，导入失败");
+    }
+  };
+
+  reader.readAsText(file, "utf-8");
+});
