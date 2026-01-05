@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+<meta name="theme-color" content="#16a34a">
+<link rel="manifest" href="manifest.json">
+<title>IELTS 单词全功能同步版</title>
+
+<script src="https://code.bdstatic.com/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+
+<style>
+:root{ --main:#16a34a; --bg:#f0fdf4; --card:#fff; --text:#064e3b; --sub:#4b5563; --danger:#dc2626; }
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+body{ margin:0; font-family:-apple-system,system-ui,sans-serif; background:var(--bg); color:var(--text); overflow-x:hidden;}
+.app{max-width:420px;margin:auto;padding:16px 16px 100px}
+
+/* 卡片样式 */
+.card{ background:var(--card); border-radius:20px; padding:20px; box-shadow:0 10px 30px rgba(22,163,74,0.1); min-height:220px; position:relative;}
+.question{text-align:center;font-size:28px;font-weight:700;word-break:break-all;margin:10px 0}
+.hint{text-align:center;color:var(--sub);font-size:14px}
+input,textarea{ width:100%; padding:14px; font-size:16px; border-radius:12px; border:2px solid #d1fae5; margin-top:12px; outline:none; transition:0.3s;}
+input:focus{ border-color:var(--main); background:#fff; }
+
+/* 结果反馈 */
+.result{text-align:center;margin-top:12px;font-size:18px;font-weight:600;min-height:1.5em}
+.correct{color:var(--main)}
+.wrong{color:var(--danger)}
+.answer{text-align:center;margin-top:4px;color:var(--sub);font-size:15px;min-height:1.5em}
+
+/* 按钮组 */
+.row{display:flex;gap:10px;justify-content:center;margin-bottom:15px}
+button{ padding:10px 16px; border:none; border-radius:12px; background:var(--main); color:#fff; font-size:14px; font-weight:600; cursor:pointer; flex:1}
+button:active{opacity:0.8}
+.secondary{background:#e2e8f0; color:#475569}
+.outline{background:transparent; border:1.5px solid var(--main); color:var(--main);}
+
+/* 悬浮按钮 */
+.fab{ position:fixed; right:20px; bottom:20px; width:56px; height:56px; border-radius:28px; background:var(--main); color:#fff; font-size:30px; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 20px rgba(0,0,0,0.2); z-index:999; }
+
+/* 弹出面板通用样式 */
+.panel{ position:fixed; left:0;right:0;bottom:0; background:#fff; padding:20px; border-radius:24px 24px 0 0; display:none; box-shadow:0 -10px 30px rgba(0,0,0,0.1); z-index:1000; max-height:85vh; overflow-y:auto; }
+
+/* 词库管理列表 */
+.word-item { display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid #f1f5f9; }
+.word-info b { color: var(--main); font-size: 16px; }
+.word-info span { color: var(--sub); font-size: 14px; margin-left:8px; }
+.btn-del { background:#fee2e2; color:#ef4444; padding:6px 12px; border-radius:8px; font-size:12px; flex:none; width:auto; }
+</style>
+</head>
+
+<body>
+<div class="app">
+  <div class="row">
+    <button onclick="setMode('en2cn')" id="btnEn">英→汉</button>
+    <button onclick="setMode('cn2en')" id="btnCn" class="secondary">汉→英</button>
+    <button onclick="togglePool()" id="btnPool" class="secondary">全部词库</button>
+  </div>
+
+  <div class="card">
+    <div id="syncStatus" style="font-size:10px; color:#94a3b8; text-align:right;">同步中...</div>
+    <div class="question" id="q">正在加载词库...</div>
+    <div class="hint" id="hint">首次使用请先添加单词</div>
+    <input id="input" placeholder="输入答案并回车" autocomplete="off">
+    <div class="result" id="result"></div>
+    <div class="answer" id="answer"></div>
+    
+    <div class="row" style="margin-top:20px">
+      <button onclick="prev()" class="outline">← 上一个</button>
+      <button onclick="next()" class="outline">下一个 →</button>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px; text-align: center;">
+    <button onclick="toggleList()" class="secondary" style="width:auto; padding: 8px 20px;">⚙️ 管理/删除词库</button>
+  </div>
+</div>
+
+<div class="fab" onclick="toggleAdd()">+</div>
+
+<div id="addPanel" class="panel">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+    <h3 style="margin:0">添加单词</h3>
+    <span onclick="toggleAdd()" style="cursor:pointer; padding:5px; color:#94a3b8">关闭</span>
+  </div>
+  <input id="newEn" placeholder="英文单词">
+  <input id="newCn" placeholder="中文意思">
+  <button onclick="add()" style="width:100%;margin-top:10px">保存单个</button>
+  
+  <div style="margin:25px 0 10px; border-top:1px solid #eee; padding-top:20px">
+    <h3 style="margin:0; font-size:16px">批量导入 (格式 英文:中文)</h3>
+    <textarea id="batchInput" rows="5" placeholder="apple:苹果&#10;banana:香蕉&#10;每行一个"></textarea>
+    <button onclick="batchAdd()" style="width:100%;margin-top:10px;background:#059669">确认批量导入</button>
+  </div>
+</div>
+
+<div id="listPanel" class="panel">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+    <h3 style="margin:0">词库管理 (<span id="wordCount">0</span>)</h3>
+    <span onclick="toggleList()" style="cursor:pointer; padding:5px; color:#94a3b8">关闭</span>
+  </div>
+  <div id="wordListContainer"></div>
+</div>
+
+<script>
+// --- 核心数据 ---
+let words = JSON.parse(localStorage.getItem("words")) || [];
+let index = 0, mode = "en2cn", pool = "all";
+const STORAGE_ID = "my_ielts_words_v1"; 
+
+// --- 1. LeanCloud 初始化 (请填入你的凭证) ---
+try {
+  AV.init({
+    appId: "ezJjMBF0ioTdPd21imL1RQ8y-gzGzoHsz",
+    appKey: "7CGxTy5W8FOeVyJRT1BSqaq3",
+    serverURL: "https://ezjjmbf0.lc-cn-n1-shared.com" 
+  });
+  document.getElementById("syncStatus").textContent = "云端已连接";
+} catch(e) {
+  document.getElementById("syncStatus").textContent = "离线模式";
+}
+
+// --- 2. 同步函数 ---
+async function syncFromCloud() {
+  if (typeof AV === 'undefined') { render(); return; }
+  const query = new AV.Query('WordData');
+  query.equalTo('storageId', STORAGE_ID);
+  try {
+    const result = await query.first();
+    if (result) {
+      words = result.get('content');
+      localStorage.setItem("words", JSON.stringify(words));
+      render();
+    }
+  } catch(e) { render(); }
+}
+
+async function save() {
+  localStorage.setItem("words", JSON.stringify(words));
+  if (typeof AV === 'undefined') return;
+  const query = new AV.Query('WordData');
+  query.equalTo('storageId', STORAGE_ID);
+  try {
+    let record = await query.first();
+    if (!record) {
+      const WordData = AV.Object.extend('WordData');
+      record = new WordData();
+      record.set('storageId', STORAGE_ID);
+    }
+    record.set('content', words);
+    await record.save();
+  } catch(e) { console.error("同步失败", e); }
+}
+
+// --- 3. 业务逻辑 ---
+function getList() {
+  return pool === "wrong" ? words.filter(w => w.wrong) : words;
+}
+
+function render() {
+  const list = getList();
+  const qDiv = document.getElementById("q");
+  const hintDiv = document.getElementById("hint");
+  const input = document.getElementById("input");
+  
+  if(!list.length) { 
+    qDiv.textContent = pool === "wrong" ? "🎉 暂无错题" : "词库为空"; 
+    hintDiv.textContent = "请点击 + 号添加单词";
+    return; 
+  }
+  
+  if (index >= list.length) index = 0;
+  if (index < 0) index = list.length - 1;
+
+  const currentWord = list[index];
+  qDiv.textContent = mode === "en2cn" ? currentWord.en : currentWord.cn;
+  hintDiv.textContent = `单词 ${index + 1} / ${list.length} | 请输入${mode === "en2cn" ? "中文" : "英文"}`;
+  input.value = ""; 
+  document.getElementById("result").textContent = ""; 
+  document.getElementById("answer").textContent = "";
+}
+
+// 导航
+function next() { index++; render(); }
+function prev() { index--; render(); }
+
+// 回车判断
+document.getElementById("input").onkeydown = e => {
+  if(e.key === "Enter") {
+    const val = e.target.value.trim().toLowerCase();
+    const list = getList();
+    if(!list.length) return;
+    const currentWord = list[index];
+    let isCorrect = mode === "en2cn" ? currentWord.cn.includes(val) : val === currentWord.en.toLowerCase();
+    
+    const resDiv = document.getElementById("result");
+    const ansDiv = document.getElementById("answer");
+
+    if(isCorrect && val !== "") {
+      resDiv.textContent = "✅ 正确";
+      resDiv.className = "result correct";
+      currentWord.wrong = 0; save();
+      setTimeout(next, 800);
+    } else {
+      resDiv.textContent = "❌ 错误";
+      resDiv.className = "result wrong";
+      currentWord.wrong = 1; save();
+      ansDiv.textContent = "正确答案：" + (mode === "en2cn" ? currentWord.cn : currentWord.en);
+    }
+  }
+};
+
+// 面板切换
+function toggleAdd() { 
+  const p = document.getElementById("addPanel");
+  p.style.display = p.style.display === "block" ? "none" : "block"; 
+}
+
+function toggleList() {
+  const p = document.getElementById("listPanel");
+  if(p.style.display === "block") {
+    p.style.display = "none";
+  } else {
+    p.style.display = "block";
+    refreshWordList();
+  }
+}
+
+// 添加逻辑
+function add() {
+  const en = document.getElementById("newEn").value.trim();
+  const cn = document.getElementById("newCn").value.trim();
+  if(!en || !cn) return;
+  words.push({en: en.toLowerCase(), cn: cn, wrong: 0});
+  save(); render();
+  document.getElementById("newEn").value = ""; 
+  document.getElementById("newCn").value = "";
+}
+
+function batchAdd() {
+  const text = document.getElementById("batchInput").value.trim();
+  if(!text) return;
+  text.split('\n').forEach(line => {
+    const parts = line.split(/[:：]/);
+    if(parts.length >= 2) words.push({en: parts[0].trim().toLowerCase(), cn: parts[1].trim(), wrong: 0});
+  });
+  save(); toggleAdd(); render();
+  document.getElementById("batchInput").value = "";
+}
+
+// 词库管理渲染
+function refreshWordList() {
+  const container = document.getElementById("wordListContainer");
+  document.getElementById("wordCount").textContent = words.length;
+  container.innerHTML = "";
+  words.forEach((item, i) => {
+    const div = document.createElement("div");
+    div.className = "word-item";
+    div.innerHTML = `
+      <div class="word-info"><b>${item.en}</b><span>${item.cn}</span></div>
+      <button class="btn-del" onclick="removeWord(${i})">删除</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function removeWord(i) {
+  if(confirm(`确定删除 "${words[i].en}" 吗？`)) {
+    words.splice(i, 1);
+    save(); refreshWordList(); render();
+  }
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById("btnEn").className = m==='en2cn'?'':'secondary';
+  document.getElementById("btnCn").className = m==='cn2en'?'':'secondary';
+  render();
+}
+
+function togglePool() {
+  pool = (pool === "all" ? "wrong" : "all");
+  document.getElementById("btnPool").textContent = pool === "all" ? "全部词库" : "只看错题";
+  document.getElementById("btnPool").className = pool === "all" ? "secondary" : "";
+  index = 0; render();
+}
+
+// 启动
+window.onload = syncFromCloud;
+</script>
+</body>
+</html>
