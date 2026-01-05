@@ -2,43 +2,86 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>雅思单词记忆 · 最终增强版</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>雅思单词记忆 · 最终版</title>
+
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
 <link rel="manifest" href="manifest.json">
 
 <style>
-:root{--bg:#f5f7fa;--card:#fff;--text:#111;--sub:#6b7280;--btn:#4f46e5}
-.dark{--bg:#111827;--card:#1f2937;--text:#f9fafb;--sub:#9ca3af;--btn:#6366f1}
-body{margin:0;background:var(--bg);color:var(--text);
-font-family:Arial,"PingFang SC","Microsoft YaHei"}
+:root{
+  --bg:#f5f7fa;--card:#fff;--text:#111;
+  --sub:#6b7280;--btn:#4f46e5;
+}
+.dark{
+  --bg:#0f172a;--card:#1e293b;--text:#f8fafc;
+  --sub:#94a3b8;--btn:#6366f1;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial;
+}
 .app{max-width:860px;margin:auto;padding:16px}
-.card{background:var(--card);padding:20px;border-radius:16px;
-box-shadow:0 8px 18px rgba(0,0,0,.15)}
-h1{text-align:center}
-.row{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:8px 0}
-button{padding:8px 14px;border:none;border-radius:8px;
-background:var(--btn);color:#fff;cursor:pointer}
+h1{text-align:center;margin:10px 0 14px}
+
+.card{
+  background:var(--card);
+  padding:22px;
+  border-radius:20px;
+  box-shadow:0 12px 30px rgba(0,0,0,.12);
+}
+.row{
+  display:flex;gap:10px;justify-content:center;
+  flex-wrap:wrap;margin:10px 0;
+}
+button{
+  min-width:96px;padding:10px 16px;
+  border:none;border-radius:14px;
+  font-size:15px;cursor:pointer;
+  background:var(--btn);color:#fff;
+}
 .secondary{background:#64748b}
 .danger{background:#dc2626}
-.question{font-size:26px;font-weight:bold;text-align:center}
-.hint{text-align:center;color:var(--sub);margin-top:6px}
-input,textarea{width:80%;padding:10px;font-size:16px;margin:8px auto;display:block}
-textarea{height:120px}
+
+.question{
+  font-size:28px;font-weight:700;
+  text-align:center;margin-bottom:6px;
+}
+.hint{
+  text-align:center;color:var(--sub);
+  font-size:15px;margin-bottom:8px;
+}
+input,textarea{
+  width:92%;display:block;margin:10px auto;
+  padding:14px;font-size:18px;
+  border-radius:14px;
+  border:2px solid #e5e7eb;
+  outline:none;
+}
+input:focus,textarea:focus{border-color:var(--btn)}
 .answer{text-align:center;margin-top:8px;display:none}
-.stats{text-align:center;font-size:14px;color:var(--sub);margin-top:10px}
+.stats{text-align:center;color:var(--sub);font-size:14px;margin-top:12px}
+textarea{height:120px}
 </style>
 
 <script>
 if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js"));
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("service-worker.js");
+  });
 }
 </script>
 </head>
 
 <body>
 <div class="app">
-<h1>雅思单词记忆 · 最终增强版</h1>
+
+<h1>雅思单词记忆 · 最终版</h1>
 
 <div class="row">
   <button onclick="setMode('en2cn')">英→汉</button>
@@ -72,10 +115,8 @@ if("serviceWorker" in navigator){
 
 <div class="stats" id="stats"></div>
 
-<!-- 添加单词 -->
-<div id="addPanel" class="card" style="display:none;margin-top:12px">
+<div id="addPanel" class="card" style="display:none;margin-top:14px">
   <h3 style="text-align:center">➕ 添加单词</h3>
-
   <div class="row">
     <button onclick="setAddMode('single')">单个</button>
     <button onclick="setAddMode('batch')" class="secondary">批量</button>
@@ -91,35 +132,29 @@ if("serviceWorker" in navigator){
     <textarea id="batchText" placeholder="abandon=放弃"></textarea>
     <button onclick="addBatch()">批量导入</button>
   </div>
-
-  <div class="row">
-    <button onclick="toggleAdd()" class="secondary">关闭</button>
-  </div>
 </div>
+
 </div>
 
 <script>
-/* ================= 云同步配置 ================= */
-const GIST_ID = "c88623c432a37c3a1ab1dd9f2ba551fb";
-const GIST_TOKEN = "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";
+/* ===== 云同步配置 ===== */
+const GIST_ID = "你的_GIST_ID";
+const GIST_TOKEN = "你的_GIST_TOKEN";
 
-/* ================= 基础数据 ================= */
+/* ===== 数据 ===== */
 const DAY = 86400000;
 let mode="en2cn", pool="all", current=null, addMode="single";
-let syncTimer=null;
 let dark = localStorage.getItem("dark")==="1";
+let syncTimer=null;
 
-let words = JSON.parse(localStorage.getItem("words")) || [
-  make("abandon","放弃"),
-  make("accurate","准确的"),
-  make("analyze","分析")
-];
-let logs = JSON.parse(localStorage.getItem("logs")) || [];
+let words = JSON.parse(localStorage.getItem("words")) || [];
+let logs  = JSON.parse(localStorage.getItem("logs")) || [];
 
-/* ================= SRS ================= */
 function make(en,cn){
   return {en,cn,ease:2.5,interval:0,due:0,wrong:0}
 }
+
+/* ===== SRS ===== */
 function schedule(w,ok){
   if(ok){
     w.ease=Math.max(1.3,w.ease+0.1);
@@ -127,19 +162,19 @@ function schedule(w,ok){
     w.wrong=0;
   }else{
     w.ease=Math.max(1.3,w.ease-0.2);
-    w.interval=1;
-    w.wrong++;
+    w.interval=1; w.wrong++;
   }
   w.due=Date.now()+w.interval*DAY;
 }
 
-/* ================= 题库 ================= */
+/* ===== 题库 ===== */
 function getPool(){
   if(pool==="due") return words.filter(w=>w.due<=Date.now());
   if(pool==="wrong") return words.filter(w=>w.wrong||w.ease<2.3);
   return words;
 }
 
+/* ===== UI ===== */
 function setMode(m){mode=m;next()}
 function setPool(p){pool=p;next()}
 function showAnswer(){answer.style.display="block"}
@@ -149,13 +184,12 @@ function toggleDark(){
   localStorage.setItem("dark",dark?"1":"0");
 }
 
-/* ================= 主流程 ================= */
+/* ===== 主流程 ===== */
 function next(){
   const list=getPool();
   if(!list.length){
     q.textContent="🎉 暂无可复习单词";
-    hint.textContent="";
-    return;
+    hint.textContent=""; return;
   }
   current=list[Math.floor(Math.random()*list.length)];
   render();
@@ -169,37 +203,26 @@ function render(){
   answer.textContent="答案："+(mode==="cn2en"?current.en:current.cn);
   answer.style.display="none";
   input.value="";
-  stats.textContent=statText();
+  stats.textContent=`词库：${words.length}`;
 }
 
-/* ================= 答题（含回车） ================= */
-function grade(forceOk){
-  let ok=forceOk;
-  if(forceOk){
+/* ===== 回答 ===== */
+function grade(force){
+  let ok=force;
+  if(force){
     const v=input.value.trim();
-    if(mode==="cn2en" && v.toLowerCase()!==current.en) ok=false;
-    if(mode==="en2cn" && !current.cn.includes(v)) ok=false;
+    if(mode==="cn2en"&&v.toLowerCase()!==current.en) ok=false;
+    if(mode==="en2cn"&&!current.cn.includes(v)) ok=false;
   }
   schedule(current,ok);
   logs.push({t:Date.now(),ok});
-  save();
-  next();
+  save(); next();
 }
-
 input.addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
-    e.preventDefault();
-    grade(true);
-  }
+  if(e.key==="Enter"){e.preventDefault();grade(true);}
 });
 
-/* ================= 统计 ================= */
-function statText(){
-  const now=Date.now();
-  return `词库：${words.length} ｜ 7天：${logs.filter(l=>now-l.t<7*DAY).length} ｜ 30天：${logs.filter(l=>now-l.t<30*DAY).length}`;
-}
-
-/* ================= 添加 / 删除 ================= */
+/* ===== 添加 / 删除 ===== */
 function toggleAdd(){addPanel.style.display=addPanel.style.display==="none"?"block":"none";}
 function setAddMode(m){
   addMode=m;
@@ -207,41 +230,48 @@ function setAddMode(m){
   batchAdd.style.display=m==="batch"?"block":"none";
 }
 function addSingle(){
-  const en=newEn.value.trim().toLowerCase(),cn=newCn.value.trim();
+  const en=newEn.value.trim().toLowerCase();
+  const cn=newCn.value.trim();
   if(!en||!cn)return alert("请输入完整");
   if(words.find(w=>w.en===en))return alert("已存在");
-  words.push(make(en,cn));
-  save();next();alert("已添加");
+  words.push(make(en,cn)); save(); next();
 }
 function addBatch(){
-  let c=0;
   batchText.value.split(/\r?\n/).forEach(l=>{
     if(l.includes("=")){
       const [en,cn]=l.split("=");
       if(en&&cn&&!words.find(w=>w.en===en.trim().toLowerCase())){
         words.push(make(en.trim().toLowerCase(),cn.trim()));
-        c++;
       }
     }
   });
-  save();next();alert(`批量添加 ${c} 个`);
+  save(); next();
 }
 function deleteCurrent(){
-  if(current&&confirm(`删除 ${current.en}？`)){
+  if(current&&confirm("删除该单词？")){
     words=words.filter(w=>w!==current);
-    save();next();
+    save(); next();
   }
 }
 
-/* ================= 自动云同步 ================= */
+/* ===== 云同步（合并） ===== */
+function mergeWords(local=[],remote=[]){
+  const map={};
+  local.forEach(w=>map[w.en]=w);
+  remote.forEach(w=>{
+    map[w.en]=map[w.en]?{...map[w.en],...w}:w;
+  });
+  return Object.values(map);
+}
+
 async function syncFromCloud(){
   try{
     const r=await fetch(`https://api.github.com/gists/${GIST_ID}`);
     const j=await r.json();
     if(j.files?.["ielts_words.json"]){
       const d=JSON.parse(j.files["ielts_words.json"].content);
-      words=d.words||words;
-      logs=d.logs||logs;
+      words=mergeWords(words,d.words||[]);
+      logs=[...logs,...(d.logs||[])];
       save(false);
     }
   }catch(e){}
@@ -268,15 +298,20 @@ function save(doSync=true){
   localStorage.setItem("words",JSON.stringify(words));
   localStorage.setItem("logs",JSON.stringify(logs));
   if(doSync){
-    if(syncTimer) clearTimeout(syncTimer);
-    syncTimer=setTimeout(()=>syncToCloud(),3000);
+    clearTimeout(syncTimer);
+    syncTimer=setTimeout(syncToCloud,3000);
   }
 }
 
-/* ================= 启动 ================= */
+/* ===== 自动同步 ===== */
+setInterval(syncFromCloud,30000);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible") syncFromCloud();
+});
+
+/* ===== 启动 ===== */
 document.body.classList.toggle("dark",dark);
 syncFromCloud().finally(()=>next());
 </script>
 </body>
 </html>
-
