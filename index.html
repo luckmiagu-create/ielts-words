@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>雅思单词记忆 · 稳定最终版</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<style>
+:root{
+  --bg:#f5f7fa;--card:#fff;--text:#111;
+  --sub:#6b7280;--btn:#4f46e5;
+  --ok:#16a34a;--bad:#dc2626;
+}
+.dark{
+  --bg:#0f172a;--card:#1e293b;--text:#f8fafc;
+  --sub:#94a3b8;--btn:#6366f1;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial;
+}
+.app{max-width:860px;margin:auto;padding:16px}
+h1{text-align:center;margin:12px 0}
+
+.card{
+  background:var(--card);
+  padding:22px;
+  border-radius:20px;
+  box-shadow:0 12px 30px rgba(0,0,0,.12);
+}
+.row{
+  display:flex;gap:10px;justify-content:center;
+  flex-wrap:wrap;margin:10px 0;
+}
+button{
+  min-width:96px;padding:10px 16px;
+  border:none;border-radius:14px;
+  font-size:15px;cursor:pointer;
+  background:var(--btn);color:#fff;
+}
+.secondary{background:#64748b}
+.danger{background:#dc2626}
+
+.question{
+  font-size:28px;font-weight:700;
+  text-align:center;margin-bottom:6px;
+}
+.hint{
+  text-align:center;color:var(--sub);
+  font-size:15px;margin-bottom:8px;
+}
+input{
+  width:92%;display:block;margin:10px auto;
+  padding:14px;font-size:18px;
+  border-radius:14px;
+  border:2px solid #e5e7eb;
+}
+.feedback{
+  text-align:center;
+  font-size:18px;
+  font-weight:bold;
+  margin-top:6px;
+}
+.ok{color:var(--ok)}
+.bad{color:var(--bad)}
+.answer{
+  text-align:center;
+  margin-top:6px;
+  display:none;
+}
+.stats{text-align:center;color:var(--sub);font-size:14px;margin-top:12px}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<h1>雅思单词记忆 · 稳定最终版</h1>
+
+<div class="row">
+  <button onclick="setMode('en2cn')">英→汉</button>
+  <button onclick="setMode('cn2en')" class="secondary">汉→英</button>
+  <button onclick="toggleDark()" class="secondary">🌙</button>
+</div>
+
+<div class="card">
+  <div class="question" id="q"></div>
+  <div class="hint" id="hint"></div>
+  <input id="input" placeholder="输入答案，回车提交">
+  <div class="feedback" id="feedback"></div>
+  <div class="answer" id="answer"></div>
+</div>
+
+<div class="row">
+  <button onclick="submit()">✔ 提交</button>
+  <button onclick="showAnswer()" class="secondary">👀 答案</button>
+  <button onclick="prev()" class="secondary">⬅ 上一个</button>
+  <button onclick="next()" class="secondary">➡ 下一个</button>
+</div>
+
+<div class="stats" id="stats"></div>
+
+</div>
+
+<script>
+const DAY=86400000;
+let mode="en2cn";
+let dark=localStorage.getItem("dark")==="1";
+
+let words=JSON.parse(localStorage.getItem("words"))||[
+  {en:"abandon",cn:"放弃"},
+  {en:"accurate",cn:"准确的"},
+  {en:"analyze",cn:"分析"}
+];
+
+let index=0;
+let answered=false;
+
+function setMode(m){mode=m;render()}
+function toggleDark(){
+  dark=!dark;
+  document.body.classList.toggle("dark",dark);
+  localStorage.setItem("dark",dark?"1":"0");
+}
+
+function render(){
+  const w=words[index];
+  q.textContent=(mode==="cn2en"?"汉译英：":"英译汉：")+(mode==="cn2en"?w.cn:w.en);
+  hint.textContent=mode==="cn2en"
+    ?w.en.slice(0,2)+" _ ".repeat(w.en.length-2)
+    :w.cn[0]+"□".repeat(w.cn.length-1);
+  answer.textContent="正确答案："+(mode==="cn2en"?w.en:w.cn);
+  answer.style.display="none";
+  feedback.textContent="";
+  input.value="";
+  answered=false;
+  stats.textContent=`第 ${index+1} / ${words.length} 个`;
+}
+
+function submit(){
+  if(answered) return;
+  const v=input.value.trim();
+  if(!v) return;
+  const w=words[index];
+  let ok=false;
+  if(mode==="cn2en"){
+    ok=v.toLowerCase()===w.en;
+  }else{
+    ok=w.cn.includes(v);
+  }
+  feedback.textContent=ok?"✅ 正确":"❌ 错误";
+  feedback.className="feedback "+(ok?"ok":"bad");
+  answered=true;
+}
+
+function showAnswer(){
+  if(answered) answer.style.display="block";
+}
+
+function next(){
+  if(index<words.length-1){
+    index++;
+    render();
+  }
+}
+
+function prev(){
+  if(index>0){
+    index--;
+    render();
+  }
+}
+
+input.addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    submit();
+  }
+});
+
+document.body.classList.toggle("dark",dark);
+render();
+</script>
+</body>
+</html>
