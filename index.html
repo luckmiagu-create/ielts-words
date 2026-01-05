@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>雅思单词记忆 · 稳定最终版</title>
+
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#4f46e5">
+
+<style>
+:root{
+  --bg:#f5f7fa;--card:#ffffff;--text:#111827;
+  --sub:#6b7280;--btn:#4f46e5;--ok:#16a34a;--bad:#dc2626;
+}
+.dark{
+  --bg:#0f172a;--card:#1e293b;--text:#f8fafc;
+  --sub:#94a3b8;--btn:#6366f1;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial;
+}
+.app{max-width:860px;margin:auto;padding:16px}
+h1{text-align:center;margin:12px 0}
+
+.card{
+  background:var(--card);
+  padding:22px;
+  border-radius:20px;
+  box-shadow:0 12px 30px rgba(0,0,0,.12);
+}
+.row{
+  display:flex;gap:10px;justify-content:center;
+  flex-wrap:wrap;margin:10px 0;
+}
+button{
+  min-width:96px;padding:10px 16px;
+  border:none;border-radius:14px;
+  font-size:15px;cursor:pointer;
+  background:var(--btn);color:#fff;
+}
+.secondary{background:#64748b}
+.danger{background:#dc2626}
+
+.question{
+  font-size:28px;font-weight:700;
+  text-align:center;margin-bottom:6px;
+}
+.hint{
+  text-align:center;color:var(--sub);
+  font-size:15px;margin-bottom:8px;
+}
+input,textarea{
+  width:92%;display:block;margin:10px auto;
+  padding:14px;font-size:18px;
+  border-radius:14px;
+  border:2px solid #e5e7eb;
+  outline:none;
+}
+input:focus,textarea:focus{border-color:var(--btn)}
+
+.feedback{
+  text-align:center;
+  font-size:18px;
+  font-weight:bold;
+  margin-top:8px;
+}
+.ok{color:var(--ok)}
+.bad{color:var(--bad)}
+
+.answer{text-align:center;margin-top:6px;display:none}
+.stats{text-align:center;color:var(--sub);font-size:14px;margin-top:12px}
+textarea{height:120px}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<h1>雅思单词记忆 · 稳定最终版</h1>
+
+<div class="row">
+  <button onclick="setMode('en2cn')">英→汉</button>
+  <button onclick="setMode('cn2en')" class="secondary">汉→英</button>
+  <button onclick="toggleDark()" class="secondary">🌙</button>
+</div>
+
+<div class="card">
+  <div class="question" id="q"></div>
+  <div class="hint" id="hint"></div>
+  <input id="input" placeholder="输入答案，回车提交" enterkeyhint="done">
+  <div class="feedback" id="feedback"></div>
+  <div class="answer" id="answer"></div>
+</div>
+
+<div class="row">
+  <button onclick="submitAnswer()">✔ 提交</button>
+  <button onclick="markForgot()" class="secondary">✖ 忘记</button>
+  <button onclick="showAnswer()">👀 答案</button>
+</div>
+
+<div class="row">
+  <button onclick="toggleAdd()" class="secondary">➕ 添加单词</button>
+  <button onclick="exportData()" class="secondary">📤 导出</button>
+  <button onclick="importData()" class="secondary">📥 导入</button>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div id="addPanel" class="card" style="display:none;margin-top:14px">
+  <h3 style="text-align:center">➕ 添加单词</h3>
+  <input id="newEn" placeholder="英文">
+  <input id="newCn" placeholder="中文">
+  <button onclick="addWord()">保存</button>
+</div>
+
+</div>
+
+<script>
+/* ===== 基础数据 ===== */
+const DAY = 86400000;
+let mode="en2cn";
+let current=null;
+let dark = localStorage.getItem("dark")==="1";
+
+let words = JSON.parse(localStorage.getItem("words")) || [
+  make("abandon","放弃"),
+  make("accurate","准确的"),
+  make("analyze","分析")
+];
+
+function make(en,cn){
+  return {en,cn,ease:2.5,interval:0,due:0};
+}
+
+/* ===== SRS ===== */
+function schedule(w,ok){
+  if(ok){
+    w.ease=Math.max(1.3,w.ease+0.1);
+    w.interval=w.interval?Math.round(w.interval*w.ease):1;
+  }else{
+    w.ease=Math.max(1.3,w.ease-0.2);
+    w.interval=1;
+  }
+  w.due=Date.now()+w.interval*DAY;
+}
+
+/* ===== UI ===== */
+function setMode(m){mode=m;next()}
+function toggleDark(){
+  dark=!dark;
+  document.body.classList.toggle("dark",dark);
+  localStorage.setItem("dark",dark?"1":"0");
+}
+function showAnswer(){
+  answer.style.display="block";
+}
+
+/* ===== 主流程 ===== */
+function next(){
+  if(!words.length){
+    q.textContent="请先添加单词";
+    return;
+  }
+  current=words[Math.floor(Math.random()*words.length)];
+  render();
+}
+
+function render(){
+  q.textContent=(mode==="cn2en"?"汉译英：":"英译汉：")+
+    (mode==="cn2en"?current.cn:current.en);
+  hint.textContent=mode==="cn2en"
+    ?current.en.slice(0,2)+" _ ".repeat(current.en.length-2)
+    :current.cn[0]+"□".repeat(current.cn.length-1);
+  answer.textContent="正确答案："+(mode==="cn2en"?current.en:current.cn);
+  answer.style.display="none";
+  feedback.textContent="";
+  input.value="";
+  stats.textContent=`词库数量：${words.length}`;
+}
+
+/* ===== 判题（已修好） ===== */
+function submitAnswer(){
+  const v=input.value.trim();
+  let ok=false;
+  if(mode==="cn2en"){
+    ok=v.toLowerCase()===current.en;
+  }else{
+    ok=current.cn.includes(v);
+  }
+
+  schedule(current,ok);
+  feedback.textContent = ok ? "✅ 正确" : "❌ 错误";
+  feedback.className = "feedback "+(ok?"ok":"bad");
+
+  save();
+  setTimeout(next,800);
+}
+
+function markForgot(){
+  schedule(current,false);
+  feedback.textContent="❌ 已标记为忘记";
+  feedback.className="feedback bad";
+  save();
+  setTimeout(next,800);
+}
+
+input.addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    submitAnswer();
+  }
+});
+
+/* ===== 添加 ===== */
+function toggleAdd(){
+  addPanel.style.display=addPanel.style.display==="none"?"block":"none";
+}
+function addWord(){
+  const en=newEn.value.trim().toLowerCase();
+  const cn=newCn.value.trim();
+  if(!en||!cn) return alert("请输入完整");
+  if(words.find(w=>w.en===en)) return alert("已存在");
+  words.push(make(en,cn));
+  save();
+  toggleAdd();
+  next();
+}
+
+/* ===== 导入导出（最稳同步方案） ===== */
+function exportData(){
+  const blob=new Blob([JSON.stringify(words,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="ielts_words.json";
+  a.click();
+}
+function importData(){
+  const i=document.createElement("input");
+  i.type="file";
+  i.accept=".json";
+  i.onchange=e=>{
+    const f=e.target.files[0];
+    const r=new FileReader();
+    r.onload=()=>{
+      try{
+        words=JSON.parse(r.result);
+        save(); next();
+        alert("导入成功");
+      }catch{
+        alert("文件格式错误");
+      }
+    };
+    r.readAsText(f);
+  };
+  i.click();
+}
+
+/* ===== 存储 ===== */
+function save(){
+  localStorage.setItem("words",JSON.stringify(words));
+}
+
+/* ===== 启动 ===== */
+document.body.classList.toggle("dark",dark);
+next();
+</script>
+</body>
+</html>
