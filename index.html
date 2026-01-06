@@ -1,50 +1,59 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IELTS 单词全端同步版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>IELTS 单词全端同步 - 权限修复版</title>
     <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; background: #f0fdf4; }
-        .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); text-align: center; }
-        #q { font-size: 32px; margin: 0; cursor: pointer; color: #064e3b; }
-        #ph { color: #16a34a; margin: 10px 0; min-height: 1.2em; font-size: 18px; }
-        input { width: 100%; padding: 12px; margin: 20px 0; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 16px; outline: none; text-align: center; }
-        button { padding: 10px 20px; border: none; border-radius: 10px; background: #16a34a; color: white; cursor: pointer; font-weight: bold; }
-        .status { font-size: 12px; color: #94a3b8; text-align: center; margin-bottom: 10px; }
+        :root { --main: #16a34a; --bg: #f0fdf4; --card: #fff; --text: #064e3b; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .status { font-size: 12px; color: #94a3b8; margin-bottom: 10px; height: 15px; }
+        .card { background: var(--card); border-radius: 20px; padding: 30px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(22,163,74,0.1); text-align: center; }
+        #q { font-size: 32px; margin: 10px 0; cursor: pointer; }
+        #ph { color: var(--main); font-size: 18px; margin-bottom: 15px; min-height: 1.2em; cursor: pointer; }
+        input { width: 100%; padding: 15px; font-size: 18px; border: 2px solid #d1fae5; border-radius: 12px; outline: none; text-align: center; }
+        button { padding: 12px 20px; border: none; border-radius: 12px; background: var(--main); color: white; font-weight: bold; cursor: pointer; margin: 5px; flex: 1; }
+        .btn-group { display: flex; width: 100%; max-width: 400px; margin-top: 15px; }
+        #addPanel { display: none; background: white; border-radius: 15px; padding: 20px; margin-top: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
-    <div id="status" class="status">正在同步云端...</div>
+
+    <div id="status" class="status">正在同步云端数据...</div>
+
     <div class="card">
         <h2 id="q" onclick="speakCurrent()">加载中...</h2>
         <div id="ph" onclick="speakCurrent()"></div>
-        <div id="hint" style="font-size: 12px; color: #999;"></div>
+        <div id="hint" style="font-size: 12px; color: #94a3b8; margin-bottom: 10px;"></div>
+
         <input type="text" id="input" placeholder="输入答案并回车" autocomplete="off">
-        <div id="result" style="font-weight: bold; margin-bottom: 5px;"></div>
-        <div id="answer" style="color: #64748b; font-size: 14px;"></div>
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
-            <button onclick="prev()" style="background:#64748b">上一个</button>
+        <div id="result" style="margin-top: 15px; font-weight: bold; height: 24px;"></div>
+        <div id="answer" style="color: #2563eb; font-size: 14px; margin-top: 5px; height: 20px;"></div>
+        
+        <div class="btn-group">
+            <button onclick="prev()" style="background:#64748b">←</button>
             <button onclick="speakCurrent()" style="background:#6366f1">🔊 朗读</button>
-            <button onclick="next()" style="background:#64748b">下一个</button>
+            <button onclick="next()" style="background:#64748b">→</button>
         </div>
     </div>
-    <div style="margin-top: 20px; text-align: center;">
-        <button onclick="toggleAdd()" style="background: #475569;">+ 添加/批量导入</button>
-    </div>
-    <div id="addPanel" style="display:none; margin-top: 20px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-        <input type="text" id="newEn" placeholder="单词 (如: atmosphere)" style="text-align: left;">
-        <input type="text" id="newPh" placeholder="音标 (如: /ˈætməsfɪə/)" style="text-align: left;">
-        <input type="text" id="newCn" placeholder="中文 (如: 大气层)" style="text-align: left;">
-        <button onclick="add()" style="width: 100%;">存入云端</button>
-        <hr style="margin: 20px 0; border: none; border-top: 1px dashed #eee;">
-        <textarea id="batchInput" placeholder="批量导入格式: 单词:音标:中文" rows="4" style="width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;"></textarea>
+
+    <button onclick="toggleAdd()" style="margin-top: 20px; background: #475569; width: 100%; max-width: 400px;">+ 添加或批量导入单词</button>
+
+    <div id="addPanel">
+        <input type="text" id="newEn" placeholder="单词 (如: atmosphere)" style="text-align: left; margin-bottom: 10px;">
+        <input type="text" id="newPh" placeholder="音标 (如: /ˈætməsfɪə/)" style="text-align: left; margin-bottom: 10px;">
+        <input type="text" id="newCn" placeholder="中文 (如: 大气层)" style="text-align: left; margin-bottom: 10px;">
+        <button onclick="add()" style="width: 100%; margin: 0 0 15px 0;">存入云库</button>
+        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 5px;">批量格式：单词:音标:含义 (每行一个)</div>
+        <textarea id="batchInput" rows="4" style="width:100%; border:1px solid #d1fae5; border-radius:10px; padding:10px; outline:none;"></textarea>
         <button onclick="batchAdd()" style="width: 100%; margin-top: 10px; background: #059669;">确认批量导入</button>
     </div>
 
 <script>
-// 初始化 (使用你截图中的信息)
+/* ======================
+    1. 初始化配置
+====================== */
 AV.init({
     appId: "ezJjMBF0ioTdPd21imL1RQ8y-gzGzoHsz",
     appKey: "7CGxTy5W8FOeVyJRT1BSqaq3",
@@ -55,7 +64,9 @@ const STORAGE_ID = "my_ielts_words_v1";
 let words = JSON.parse(localStorage.getItem("words") || "[]");
 let index = 0;
 
-// 朗读
+/* ======================
+    2. 语音功能
+====================== */
 function speak(text) {
     if (!text) return;
     window.speechSynthesis.cancel();
@@ -65,70 +76,100 @@ function speak(text) {
 }
 function speakCurrent() { if (words[index]) speak(words[index].en); }
 
-// 同步：优先读取云端
+/* ======================
+    3. 云同步核心逻辑 (权限修复版)
+====================== */
 async function syncFromCloud() {
     const statusEl = document.getElementById("status");
     try {
         const query = new AV.Query('WordData');
         query.equalTo('storageId', STORAGE_ID);
         const record = await query.first();
+        
         if (record) {
             words = record.get('content') || [];
             localStorage.setItem("words", JSON.stringify(words));
-            statusEl.textContent = "✅ 云端已同步 (词库: " + words.length + ")";
-        } else { statusEl.textContent = "☁️ 云端尚无数据"; }
-    } catch (e) { statusEl.textContent = "⚠️ 离线模式"; }
+            statusEl.textContent = "✅ 云端同步完成 (当前: " + words.length + " 个词)";
+        } else {
+            statusEl.textContent = "☁️ 云端尚无数据";
+        }
+    } catch (e) {
+        statusEl.textContent = "⚠️ 离线模式: " + e.message;
+    }
     render();
 }
 
-// 保存：本地+云端双同步
 async function saveToCloud() {
-    document.getElementById("status").textContent = "正在同步至云端...";
+    const statusEl = document.getElementById("status");
+    statusEl.textContent = "正在同步至云端...";
     localStorage.setItem("words", JSON.stringify(words));
+    
     try {
         const query = new AV.Query('WordData');
         query.equalTo('storageId', STORAGE_ID);
         let record = await query.first();
+        
         if (!record) {
             const WordObj = AV.Object.extend('WordData');
             record = new WordObj();
             record.set('storageId', STORAGE_ID);
         }
+
+        // --- 核心修复：强制设置所有人可读写权限 ---
+        const acl = new AV.ACL();
+        acl.setPublicReadAccess(true);
+        acl.setPublicWriteAccess(true); 
+        record.setACL(acl); 
+        // -----------------------------------------------------------
+
         record.set('content', words);
         await record.save();
-        document.getElementById("status").textContent = "✅ 云端同步成功";
-    } catch (e) { document.getElementById("status").textContent = "❌ 同步失败"; }
+        statusEl.textContent = "✅ 云端同步成功 (词库: " + words.length + ")";
+    } catch (e) {
+        console.error(e);
+        statusEl.textContent = "❌ 同步失败: " + e.message;
+    }
 }
 
+/* ======================
+    4. 业务逻辑
+====================== */
 function render() {
-    if (!words.length) {
+    if (words.length === 0) {
         document.getElementById("q").textContent = "词库为空";
         document.getElementById("ph").textContent = "";
+        document.getElementById("hint").textContent = "点击下方按钮开始添加";
         return;
     }
     if (index >= words.length) index = 0;
+    if (index < 0) index = words.length - 1;
+
     const current = words[index];
     document.getElementById("q").textContent = current.en;
     document.getElementById("ph").textContent = current.ph ? `[${current.ph}]` : "";
-    document.getElementById("hint").textContent = `进度: ${index+1}/${words.length}`;
+    document.getElementById("hint").textContent = `进度: ${index + 1} / ${words.length}`;
     document.getElementById("input").value = "";
     document.getElementById("result").textContent = "";
     document.getElementById("answer").textContent = "";
+    speak(current.en);
 }
 
-function next() { index = (index + 1) % words.length; render(); speakCurrent(); }
-function prev() { index = (index - 1 + words.length) % words.length; render(); speakCurrent(); }
+function next() { index++; render(); }
+function prev() { index--; render(); }
 
 document.getElementById("input").onkeydown = e => {
     if (e.key === "Enter") {
         const val = e.target.value.trim().toLowerCase();
         const current = words[index];
-        if (current.cn.includes(val)) {
+        if (current.cn.replace(/\s/g,"").includes(val.replace(/\s/g,""))) {
             document.getElementById("result").textContent = "✅ 正确";
+            document.getElementById("result").style.color = "#16a34a";
             setTimeout(next, 800);
         } else {
             document.getElementById("result").textContent = "❌ 错误";
-            document.getElementById("answer").textContent = "答案: " + current.cn;
+            document.getElementById("result").style.color = "#dc2626";
+            document.getElementById("answer").textContent = "正确答案: " + current.cn;
+            speak(current.en);
         }
     }
 };
