@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词随身练</title>
+    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+    <style>
+        /* 这里保持你原有的 CSS 样式，以下是核心逻辑优化 */
+        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
+        .result { margin: 10px 0; font-weight: bold; }
+        .correct { color: green; }
+        .wrong { color: red; }
+        .secondary { opacity: 0.5; }
+        input, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        #addPanel { display: none; border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
+        .nav-btns { display: flex; gap: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="syncStatus" style="font-size: 12px; color: #888;">正在初始化...</div>
+    
+    <h2 id="q">加载中...</h2>
+    <div id="ph" style="color: #666; font-style: italic;"></div>
+    <div id="hint" style="font-size: 14px; color: #999;"></div>
+
+    <input type="text" id="input" placeholder="输入答案并回车" autocomplete="off">
+    <div id="result" class="result"></div>
+    <div id="answer" style="color: #007bff;"></div>
+
+    <div class="nav-btns">
+        <button onclick="prev()">上一个</button>
+        <button onclick="next()">下一个</button>
+    </div>
+
+    <hr>
+    <button id="btnEn" onclick="setMode('en2cn')">英文 -> 中文</button>
+    <button id="btnCn" class="secondary" onclick="setMode('cn2en')">中文 -> 英文</button>
+    <button id="btnPool" onclick="togglePool()">全部</button>
+    <button onclick="toggleAdd()">+ 添加单词</button>
+
+    <div id="addPanel">
+        <input type="text" id="newEn" placeholder="单词 (如: apple)">
+        <input type="text" id="newPh" placeholder="音标 (可选)">
+        <input type="text" id="newCn" placeholder="含义 (如: 苹果)">
+        <button onclick="add()">保存单个</button>
+        <textarea id="batchInput" placeholder="批量添加 (格式: 单词:音标:含义 或 单词:含义 每行一个)" rows="5" style="width:100%"></textarea>
+        <button onclick="batchAdd()">批量保存</button>
+    </div>
+
+<script>
+/* ======================
+   配置与初始化
+====================== */
+const SYNC_ACCOUNT = {
+    u: "my_word_app_user", // 你可以修改这个用户名
+    p: "my_password_123"   // 你可以修改这个密码
+};
+
+AV.init({
+    appId: "ezJjMBF0ioTdPd21imL1RQ8y-gzGzoHsz",
+    appKey: "7CGxTy5W8FOeVyJRT1BSqaq3",
+    serverURL: "https://ezjjmbf0.lc-cn-n1-shared.com"
+});
+
+// 获取 DOM 引用
+const $ = id => document.getElementById(id);
+const qEl = $("q"), phEl = $("ph"), hintEl = $("hint"), inputEl = $("input"),
+      resEl = $("result"), ansEl = $("answer"), addPanel = $("addPanel"),
+      newEn = $("newEn"), newCn = $("newCn"), newPh = $("newPh"),
+      batchInput = $("batchInput"), btnEn = $("btnEn"), btnCn = $("btnCn"), 
+      btnPool = $("btnPool"), syncStatus = $("syncStatus");
+
+let words = JSON.parse(localStorage.getItem("words") || "[]");
+let index = 0;
+let mode = "en2cn";
+let pool = "all";
+let currentUser = null;
+let saveTimer = null;
+let cloudReady = false;
+
+/* ======================
+   云同步逻辑 (自动登录打通多端)
+====================== */
+async function loginAndSync() {
+    syncStatus.textContent = "正在连接云端...";
+    try {
+        // 尝试登录
+        try {
+            currentUser = await AV.User.logIn(SYNC_ACCOUNT.u, SYNC_ACCOUNT.p);
+        } catch (e) {
+            // 如果账号不存在则注册一个
+            if (e.code === 211 || e.code === 210) {
+                const user = new AV.User();
+                user.setUsername(SYNC_ACCOUNT.u);
+                user.setPassword(SYNC_ACCOUNT.p);
+                currentUser = await user.signUp();
+            } else { throw e; }
+        }
+
+        // 拉取数据
+        const query = new AV.Query("WordData");
+        query.equalTo("user", currentUser);
+        const record = await query.first();
+
+        if (record) {
+            const cloudWords = record.get("content") || [];
+            // 如果云端有数据，则同步到本地（这里采用简单的云端优先策略）
+            if (cloudWords.length >= words.length) {
+                words = cloudWords;
+                localStorage.setItem("words", JSON.stringify(words));
+            }
+        }
+        cloudReady = true;
+        syncStatus.textContent = "云端已同步 (账号: " + SYNC_ACCOUNT.u + ")";
+    } catch (err) {
+        console.error(err);
+        syncStatus.textContent = "离线模式 (未连接云端)";
+    }
+    render();
+}
+
+function save() {
+    localStorage.setItem("words", JSON.stringify(words));
+    if (!cloudReady) return;
+
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+        try {
+            const query = new AV.Query("WordData");
+            query.equalTo("user", currentUser);
+            let record = await query.first();
+            if (!record) {
+                record = new AV.Object("WordData");
+                record.set("user", currentUser);
+            }
+            record.set("content", words);
+            await record.save();
+            syncStatus.textContent = "云端已同步";
+        } catch (e) {
+            syncStatus.textContent = "同步失败，请检查网络";
+        }
+    }, 1000);
+}
+
+/* ======================
+   业务逻辑
+====================== */
+function getList() {
+    return pool === "wrong" ? words.filter(w => w.wrong) : words;
+}
+
+function render() {
+    const list = getList();
+    if (!list.length) {
+        qEl.textContent = pool === "wrong" ? "没有错题" : "词库为空";
+        hintEl.textContent = "点击 + 添加单词";
+        phEl.textContent = "";
+        return;
+    }
+
+    if (index >= list.length) index = 0;
+    if (index < 0) index = list.length - 1;
+
+    const c = list[index];
+    qEl.textContent = mode === "en2cn" ? c.en : c.cn;
+    phEl.textContent = c.ph ? `[${c.ph}]` : "";
+    hintEl.textContent = `单词 ${index + 1}/${list.length}`;
+    inputEl.value = "";
+    resEl.textContent = "";
+    ansEl.textContent = "";
+    inputEl.focus(); // 自动聚焦
+}
+
+function next() { index++; render(); }
+function prev() { index--; render(); }
+
+inputEl.onkeydown = e => {
+    if (e.key !== "Enter") return;
+    const val = inputEl.value.trim().toLowerCase();
+    if (!val) return;
+
+    const list = getList();
+    const c = list[index];
+    let ok = false;
+
+    if (mode === "en2cn") {
+        // 中文判断：包含即可（比如输入“苹果”能匹配“苹果，水果”）
+        ok = c.cn.replace(/\s/g,"").includes(val.replace(/\s/g,""));
+    } else {
+        // 英文判断：需完全一致
+        ok = val === c.en.toLowerCase().trim();
+    }
+
+    if (ok) {
+        resEl.textContent = "✅ 正确";
+        resEl.className = "result correct";
+        c.wrong = 0;
+        save();
+        setTimeout(next, 800);
+    } else {
+        resEl.textContent = "❌ 错误";
+        resEl.className = "result wrong";
+        c.wrong = 1;
+        ansEl.textContent = "答案：" + (mode === "en2cn" ? c.cn : c.en);
+        save();
+    }
+};
+
+/* ======================
+   添加逻辑
+====================== */
+function toggleAdd() {
+    addPanel.style.display = addPanel.style.display === "block" ? "none" : "block";
+}
+
+function add() {
+    const en = newEn.value.trim().toLowerCase();
+    const cn = newCn.value.trim();
+    const ph = newPh.value.trim();
+    if (!en || !cn) return;
+    if (words.some(w => w.en === en)) { alert("单词已存在"); return; }
+
+    words.push({ en, cn, ph, wrong: 0, createdAt: Date.now() });
+    newEn.value = ""; newCn.value = ""; newPh.value = "";
+    save();
+    render();
+}
+
+function batchAdd() {
+    const lines = batchInput.value.split("\n");
+    lines.forEach(line => {
+        const parts = line.split(/[:：]/);
+        if (parts.length >= 2) {
+            const en = parts[0].trim().toLowerCase();
+            if (!words.some(w => w.en === en)) {
+                // 自动判断是否有音标
+                const cn = parts[parts.length - 1].trim();
+                const ph = parts.length === 3 ? parts[1].trim() : "";
+                words.push({ en, cn, ph, wrong: 0, createdAt: Date.now() });
+            }
+        }
+    });
+    batchInput.value = "";
+    toggleAdd();
+    save();
+    render();
+}
+
+function setMode(m) {
+    mode = m;
+    btnEn.className = m === "en2cn" ? "" : "secondary";
+    btnCn.className = m === "cn2en" ? "" : "secondary";
+    render();
+}
+
+function togglePool() {
+    pool = pool === "all" ? "wrong" : "all";
+    btnPool.textContent = pool === "all" ? "全部" : "错题";
+    index = 0;
+    render();
+}
+
+window.onload = loginAndSync;
+</script>
+</body>
+</html>
