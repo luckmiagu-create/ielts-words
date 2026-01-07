@@ -1,217 +1,210 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>IELTS 单词全端同步 - 权限修复版</title>
-    <script src="https://cdn.jsdelivr.net/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
-    <style>
-        :root { --main: #16a34a; --bg: #f0fdf4; --card: #fff; --text: #064e3b; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
-        .status { font-size: 12px; color: #94a3b8; margin-bottom: 10px; height: 15px; }
-        .card { background: var(--card); border-radius: 20px; padding: 30px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(22,163,74,0.1); text-align: center; }
-        #q { font-size: 32px; margin: 10px 0; cursor: pointer; }
-        #ph { color: var(--main); font-size: 18px; margin-bottom: 15px; min-height: 1.2em; cursor: pointer; }
-        input { width: 100%; padding: 15px; font-size: 18px; border: 2px solid #d1fae5; border-radius: 12px; outline: none; text-align: center; }
-        button { padding: 12px 20px; border: none; border-radius: 12px; background: var(--main); color: white; font-weight: bold; cursor: pointer; margin: 5px; flex: 1; }
-        .btn-group { display: flex; width: 100%; max-width: 400px; margin-top: 15px; }
-        #addPanel { display: none; background: white; border-radius: 15px; padding: 20px; margin-top: 20px; width: 100%; max-width: 400px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0">
+<meta name="theme-color" content="#16a34a">
+<title>IELTS Words</title>
+
+<script src="https://code.bdstatic.com/npm/leancloud-storage@4.12.0/dist/av-min.js"></script>
+
+<style>
+:root{
+  --main:#16a34a; --bg:#f0fdf4; --card:#fff;
+  --text:#064e3b; --sub:#6b7280; --danger:#dc2626;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:-apple-system,system-ui;
+  background:var(--bg);color:var(--text)
+}
+.app{max-width:420px;margin:auto;padding:16px 16px 100px}
+.card{
+  background:var(--card);border-radius:24px;padding:24px;
+  box-shadow:0 12px 35px rgba(22,163,74,.15);
+  text-align:center;min-height:260px
+}
+.question{font-size:32px;font-weight:700;margin:10px 0}
+.hint{color:var(--sub);font-size:14px;margin-bottom:10px}
+input,textarea{
+  width:100%;padding:14px;font-size:16px;
+  border-radius:14px;border:2px solid #d1fae5;
+}
+input:focus{border-color:var(--main)}
+.result{margin-top:12px;font-size:20px;font-weight:700}
+.correct{color:var(--main)}
+.wrong{color:var(--danger)}
+.answer{margin-top:6px;color:var(--sub)}
+.row{display:flex;gap:10px;margin-bottom:16px}
+button{
+  flex:1;padding:12px;border:none;border-radius:14px;
+  background:var(--main);color:#fff;font-weight:600
+}
+.secondary{background:#e5e7eb;color:#374151}
+.fab{
+  position:fixed;right:20px;bottom:20px;
+  width:60px;height:60px;border-radius:30px;
+  background:var(--main);color:#fff;
+  font-size:34px;display:flex;
+  align-items:center;justify-content:center;
+  box-shadow:0 10px 25px rgba(0,0,0,.3)
+}
+.panel{
+  position:fixed;left:0;right:0;bottom:0;
+  background:#fff;border-radius:28px 28px 0 0;
+  padding:24px;display:none;max-height:85vh;overflow:auto
+}
+.word-item{
+  display:flex;justify-content:space-between;
+  padding:12px 0;border-bottom:1px solid #eee
+}
+</style>
 </head>
+
 <body>
+<div class="app">
 
-    <div id="status" class="status">正在同步云端数据...</div>
+<div class="row">
+  <button onclick="setMode('en2cn')" id="btnEn">英→汉</button>
+  <button onclick="setMode('cn2en')" id="btnCn" class="secondary">汉→英</button>
+  <button onclick="togglePool()" id="btnPool" class="secondary">全部</button>
+</div>
 
-    <div class="card">
-        <h2 id="q" onclick="speakCurrent()">加载中...</h2>
-        <div id="ph" onclick="speakCurrent()"></div>
-        <div id="hint" style="font-size: 12px; color: #94a3b8; margin-bottom: 10px;"></div>
+<div class="card">
+  <div id="syncStatus" style="font-size:10px;text-align:right;color:#9ca3af">同步中…</div>
+  <div class="question" id="q">加载中…</div>
+  <div class="hint" id="hint"></div>
+  <input id="input" placeholder="输入答案 回车">
+  <div class="result" id="result"></div>
+  <div class="answer" id="answer"></div>
+</div>
 
-        <input type="text" id="input" placeholder="输入答案并回车" autocomplete="off">
-        <div id="result" style="margin-top: 15px; font-weight: bold; height: 24px;"></div>
-        <div id="answer" style="color: #2563eb; font-size: 14px; margin-top: 5px; height: 20px;"></div>
-        
-        <div class="btn-group">
-            <button onclick="prev()" style="background:#64748b">←</button>
-            <button onclick="speakCurrent()" style="background:#6366f1">🔊 朗读</button>
-            <button onclick="next()" style="background:#64748b">→</button>
-        </div>
-    </div>
+<div class="row" style="margin-top:20px">
+  <button onclick="prev()" class="secondary">←</button>
+  <button onclick="next()" class="secondary">→</button>
+</div>
 
-    <button onclick="toggleAdd()" style="margin-top: 20px; background: #475569; width: 100%; max-width: 400px;">+ 添加或批量导入单词</button>
+</div>
 
-    <div id="addPanel">
-        <input type="text" id="newEn" placeholder="单词 (如: atmosphere)" style="text-align: left; margin-bottom: 10px;">
-        <input type="text" id="newPh" placeholder="音标 (如: /ˈætməsfɪə/)" style="text-align: left; margin-bottom: 10px;">
-        <input type="text" id="newCn" placeholder="中文 (如: 大气层)" style="text-align: left; margin-bottom: 10px;">
-        <button onclick="add()" style="width: 100%; margin: 0 0 15px 0;">存入云库</button>
-        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 5px;">批量格式：单词:音标:含义 (每行一个)</div>
-        <textarea id="batchInput" rows="4" style="width:100%; border:1px solid #d1fae5; border-radius:10px; padding:10px; outline:none;"></textarea>
-        <button onclick="batchAdd()" style="width: 100%; margin-top: 10px; background: #059669;">确认批量导入</button>
-    </div>
+<div class="fab" onclick="toggleAdd()">+</div>
+
+<div id="addPanel" class="panel">
+  <h3>添加单词</h3>
+  <input id="newEn" placeholder="英文">
+  <input id="newCn" placeholder="中文">
+  <button onclick="add()">保存</button>
+  <hr>
+  <textarea id="batchInput" placeholder="apple:苹果"></textarea>
+  <button onclick="batchAdd()">批量导入</button>
+</div>
 
 <script>
-/* ======================
-    1. 初始化配置
-====================== */
+/* ========== LeanCloud 初始化 ========== */
 AV.init({
-    appId: "ezJjMBF0ioTdPd21imL1RQ8y-gzGzoHsz",
-    appKey: "7CGxTy5W8FOeVyJRT1BSqaq3",
-    serverURL: "https://ezjjmbf0.lc-cn-n1-shared.com"
+  appId:"ezJjMBF0ioTdPd21imL1RQ8y-gzGzoHsz",
+  appKey:"7CGxTy5W8FOeVyJRT1BSqaq3",
+  serverURL:"https://ezjjmbf0.lc-cn-n1-shared.com"
 });
 
-const STORAGE_ID = "my_ielts_words_v1"; 
-let words = JSON.parse(localStorage.getItem("words") || "[]");
-let index = 0;
+/* ========== 数据 ========== */
+const STORAGE_ID="ielts_words_main";
+let words=JSON.parse(localStorage.getItem("words"))||[];
+let index=0,mode="en2cn",pool="all";
 
-/* ======================
-    2. 语音功能
-====================== */
-function speak(text) {
-    if (!text) return;
-    window.speechSynthesis.cancel();
-    const msg = new SpeechSynthesisUtterance(text);
-    msg.lang = 'en-US';
-    window.speechSynthesis.speak(msg);
+/* ========== 合并函数（关键） ========== */
+function mergeWords(local=[],remote=[]){
+  const map={};
+  remote.forEach(w=>map[w.en]=w);
+  local.forEach(w=>map[w.en]={...map[w.en],...w});
+  return Object.values(map);
 }
-function speakCurrent() { if (words[index]) speak(words[index].en); }
 
-/* ======================
-    3. 云同步核心逻辑 (权限修复版)
-====================== */
-async function syncFromCloud() {
-    const statusEl = document.getElementById("status");
-    try {
-        const query = new AV.Query('WordData');
-        query.equalTo('storageId', STORAGE_ID);
-        const record = await query.first();
-        
-        if (record) {
-            words = record.get('content') || [];
-            localStorage.setItem("words", JSON.stringify(words));
-            statusEl.textContent = "✅ 云端同步完成 (当前: " + words.length + " 个词)";
-        } else {
-            statusEl.textContent = "☁️ 云端尚无数据";
-        }
-    } catch (e) {
-        statusEl.textContent = "⚠️ 离线模式: " + e.message;
+/* ========== 同步 ========== */
+async function syncFromCloud(){
+  const q=new AV.Query("WordData");
+  q.equalTo("storageId",STORAGE_ID);
+  const r=await q.first();
+  if(r){
+    words=mergeWords(words,r.get("content")||[]);
+    localStorage.setItem("words",JSON.stringify(words));
+  }
+  render();
+  syncStatus.textContent="已同步";
+}
+
+async function save(){
+  localStorage.setItem("words",JSON.stringify(words));
+  const q=new AV.Query("WordData");
+  q.equalTo("storageId",STORAGE_ID);
+  let r=await q.first();
+  if(!r){
+    r=new (AV.Object.extend("WordData"))();
+    r.set("storageId",STORAGE_ID);
+  }
+  r.set("content",words);
+  await r.save();
+  syncStatus.textContent="已上传";
+}
+
+/* ========== 逻辑 ========== */
+function list(){return pool==="wrong"?words.filter(w=>w.wrong):words}
+
+function render(){
+  const l=list();
+  if(!l.length){
+    q.textContent="暂无单词";
+    hint.textContent="点击 + 添加";
+    return;
+  }
+  if(index>=l.length)index=0;
+  const c=l[index];
+  q.textContent=mode==="en2cn"?c.en:c.cn;
+  hint.textContent=`${index+1}/${l.length}`;
+  input.value="";result.textContent="";answer.textContent="";
+}
+
+input.onkeydown=e=>{
+  if(e.key==="Enter"){
+    const v=input.value.trim().toLowerCase();
+    const c=list()[index];
+    const ok=mode==="en2cn"?c.cn.includes(v):v===c.en;
+    if(ok){
+      result.textContent="✅ 正确";
+      result.className="result correct";
+      c.wrong=0; save();
+      setTimeout(next,600);
+    }else{
+      result.textContent="❌ 错误";
+      result.className="result wrong";
+      c.wrong=1; save();
+      answer.textContent="答案："+(mode==="en2cn"?c.cn:c.en);
     }
-    render();
+  }
 }
 
-async function saveToCloud() {
-    const statusEl = document.getElementById("status");
-    statusEl.textContent = "正在同步至云端...";
-    localStorage.setItem("words", JSON.stringify(words));
-    
-    try {
-        const query = new AV.Query('WordData');
-        query.equalTo('storageId', STORAGE_ID);
-        let record = await query.first();
-        
-        if (!record) {
-            const WordObj = AV.Object.extend('WordData');
-            record = new WordObj();
-            record.set('storageId', STORAGE_ID);
-        }
+function next(){index++;render()}
+function prev(){index--;render()}
+function setMode(m){mode=m;btnEn.className=m==="en2cn"?"":"secondary";btnCn.className=m==="cn2en"?"":"secondary";render()}
+function togglePool(){pool=pool==="all"?"wrong":"all";btnPool.textContent=pool==="all"?"全部":"错题";render()}
 
-        // --- 核心修复：强制设置所有人可读写权限 ---
-        const acl = new AV.ACL();
-        acl.setPublicReadAccess(true);
-        acl.setPublicWriteAccess(true); 
-        record.setACL(acl); 
-        // -----------------------------------------------------------
-
-        record.set('content', words);
-        await record.save();
-        statusEl.textContent = "✅ 云端同步成功 (词库: " + words.length + ")";
-    } catch (e) {
-        console.error(e);
-        statusEl.textContent = "❌ 同步失败: " + e.message;
-    }
+/* ========== 添加 ========== */
+function toggleAdd(){addPanel.style.display=addPanel.style.display?"":"block"}
+function add(){
+  if(!newEn.value||!newCn.value)return;
+  words.push({en:newEn.value.toLowerCase(),cn:newCn.value,wrong:0});
+  save();toggleAdd();render();
+  newEn.value=newCn.value="";
+}
+function batchAdd(){
+  batchInput.value.split("\n").forEach(l=>{
+    const [en,cn]=l.split(/[:：]/);
+    if(en&&cn)words.push({en:en.trim().toLowerCase(),cn:cn.trim(),wrong:0});
+  });
+  save();toggleAdd();render();batchInput.value="";
 }
 
-/* ======================
-    4. 业务逻辑
-====================== */
-function render() {
-    if (words.length === 0) {
-        document.getElementById("q").textContent = "词库为空";
-        document.getElementById("ph").textContent = "";
-        document.getElementById("hint").textContent = "点击下方按钮开始添加";
-        return;
-    }
-    if (index >= words.length) index = 0;
-    if (index < 0) index = words.length - 1;
-
-    const current = words[index];
-    document.getElementById("q").textContent = current.en;
-    document.getElementById("ph").textContent = current.ph ? `[${current.ph}]` : "";
-    document.getElementById("hint").textContent = `进度: ${index + 1} / ${words.length}`;
-    document.getElementById("input").value = "";
-    document.getElementById("result").textContent = "";
-    document.getElementById("answer").textContent = "";
-    speak(current.en);
-}
-
-function next() { index++; render(); }
-function prev() { index--; render(); }
-
-document.getElementById("input").onkeydown = e => {
-    if (e.key === "Enter") {
-        const val = e.target.value.trim().toLowerCase();
-        const current = words[index];
-        if (current.cn.replace(/\s/g,"").includes(val.replace(/\s/g,""))) {
-            document.getElementById("result").textContent = "✅ 正确";
-            document.getElementById("result").style.color = "#16a34a";
-            setTimeout(next, 800);
-        } else {
-            document.getElementById("result").textContent = "❌ 错误";
-            document.getElementById("result").style.color = "#dc2626";
-            document.getElementById("answer").textContent = "正确答案: " + current.cn;
-            speak(current.en);
-        }
-    }
-};
-
-function toggleAdd() {
-    const p = document.getElementById("addPanel");
-    p.style.display = p.style.display === "none" ? "block" : "none";
-}
-
-function add() {
-    const en = document.getElementById("newEn").value.trim();
-    const ph = document.getElementById("newPh").value.trim();
-    const cn = document.getElementById("newCn").value.trim();
-    if (en && cn) {
-        words.push({ en, ph, cn });
-        render();
-        saveToCloud();
-        document.getElementById("newEn").value = "";
-        document.getElementById("newPh").value = "";
-        document.getElementById("newCn").value = "";
-    }
-}
-
-function batchAdd() {
-    const text = document.getElementById("batchInput").value.trim();
-    if (!text) return;
-    text.split('\n').forEach(line => {
-        const parts = line.split(/[:：]/);
-        if (parts.length >= 2) {
-            const en = parts[0].trim();
-            const cn = parts[parts.length - 1].trim();
-            const ph = parts.length === 3 ? parts[1].trim() : "";
-            words.push({ en, ph, cn });
-        }
-    });
-    saveToCloud();
-    render();
-    document.getElementById("batchInput").value = "";
-    toggleAdd();
-}
-
-window.onload = syncFromCloud;
+/* ========== 启动 ========== */
+syncFromCloud();
 </script>
 </body>
 </html>
